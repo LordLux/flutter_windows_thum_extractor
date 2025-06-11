@@ -12,6 +12,18 @@ project(${PROJECT_NAME} LANGUAGES CXX)
 # versions of CMake.
 cmake_policy(VERSION 3.14...3.25)
 
+# Disable Windows macros that conflict with C++ standard library
+add_definitions(-DNOMINMAX)
+
+SET(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} "C:/boost_1_88_0/")
+SET(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} "C:/boost_1_88_0/stage/lib")
+
+FIND_PACKAGE(Boost)
+IF (Boost_FOUND)
+    INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIR})
+    ADD_DEFINITIONS( "-DHAS_BOOST" )
+ENDIF()
+
 # This value is used when generating builds using this plugin, so it must
 # not be changed
 set(PLUGIN_NAME "video_thumbnail_exporter_plugin")
@@ -22,6 +34,8 @@ list(APPEND PLUGIN_SOURCES
   "video_thumbnail_exporter_plugin.h"
   "thumbnail_exporter.cpp"
   "thumbnail_exporter.h"
+  "mkv_metadata_extractor_version5.cpp"
+  "mkv_metadata_extractor_version5.h"
 )
 
 # Define the plugin library target. Its name must not be changed (see comment
@@ -50,12 +64,17 @@ target_include_directories(${PLUGIN_NAME} INTERFACE
   "${CMAKE_CURRENT_SOURCE_DIR}/include"
   "${CMAKE_CURRENT_SOURCE_DIR}"
 )
+
 target_link_libraries(${PLUGIN_NAME} PRIVATE
   flutter
   flutter_wrapper_plugin
   Shlwapi.lib       # for SHCreateItemFromParsingName
   Shell32.lib       # for IThumbnailCache COM interfaces
   Gdiplus.lib       # for GDI+ (saving HBITMAP → PNG)
+)
+
+target_link_directories(${PLUGIN_NAME} PRIVATE
+  "C:/boost_1_88_0/stage/lib"
 )
 
 # List of absolute paths to libraries that should be bundled with the plugin.

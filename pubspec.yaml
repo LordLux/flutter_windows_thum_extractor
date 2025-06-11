@@ -1,6 +1,6 @@
 name: video_thumbnail_exporter
 description: "A Flutter plugin for extracting cached video thumbnails using the Windows API."
-version: 0.0.1
+version: 1.0.0
 homepage:
 
 environment:

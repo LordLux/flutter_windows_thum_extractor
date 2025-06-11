@@ -1,5 +1,6 @@
 #include "video_thumbnail_exporter_plugin.h"
 #include "thumbnail_exporter.h"
+#include "mkv_metadata_extractor_version5.h"
 
 // This must be included before many other Windows headers.
 #include <windows.h>
@@ -37,6 +38,22 @@ void VideoThumbnailExporterPlugin::RegisterWithRegistrar(
 VideoThumbnailExporterPlugin::VideoThumbnailExporterPlugin() {}
 
 VideoThumbnailExporterPlugin::~VideoThumbnailExporterPlugin() {}
+
+// Helper function to convert wide string to UTF-8
+std::string WideToUtf8(const std::wstring& wide) {
+  if (wide.empty()) return std::string();
+  
+  int size_needed = WideCharToMultiByte(CP_UTF8, 0, wide.c_str(), -1, nullptr, 0, nullptr, nullptr);
+  std::string strTo(size_needed, 0);
+  WideCharToMultiByte(CP_UTF8, 0, wide.c_str(), -1, &strTo[0], size_needed, nullptr, nullptr);
+  
+  // Remove null terminator
+  if (!strTo.empty() && strTo.back() == '\0') {
+    strTo.pop_back();
+  }
+  
+  return strTo;
+}
 
 void VideoThumbnailExporterPlugin::HandleMethodCall(
     const flutter::MethodCall<flutter::EncodableValue> &method_call,
@@ -110,7 +127,189 @@ void VideoThumbnailExporterPlugin::HandleMethodCall(
         "native_error",
         "Failed to retrieve or save the thumbnail. Check paths & permissions.");
     }
-  } else {
+  } else if (method == "getMkvMetadata") {
+    // Handle MKV metadata extraction
+    const auto* args = std::get_if<flutter::EncodableMap>(method_call.arguments());
+    if (!args) {
+      result->Error(
+        "bad_args",
+        "Expected a map with key 'mkvPath'.");
+      return;
+    }
+    
+    // Get the MKV file path
+    std::string mkvPath;
+    for (const auto& kv : *args) {
+      const auto& key = kv.first;
+      const auto& value = kv.second;
+      if (auto keyStr = std::get_if<std::string>(&key)) {
+        if (*keyStr == "mkvPath" && std::get_if<std::string>(&value)) {
+          mkvPath = std::get<std::string>(value);
+        }
+      }
+    }
+    
+    if (mkvPath.empty()) {
+      result->Error(
+        "invalid_args",
+        "Missing or invalid 'mkvPath' parameter.");
+      return;
+    }
+    
+    // Create MKV metadata extractor
+    MkvMetadataExtractor extractor;
+    if (!extractor.open(mkvPath)) {
+      result->Error(
+        "file_error",
+        "Failed to open the MKV file.");
+      return;
+    }
+    
+    // Build a response map with the metadata
+    flutter::EncodableMap metadata;
+    
+    // Add general information
+    metadata[flutter::EncodableValue("title")] = 
+      flutter::EncodableValue(extractor.getTitle());
+    metadata[flutter::EncodableValue("duration")] = 
+      flutter::EncodableValue(extractor.getDuration());
+    metadata[flutter::EncodableValue("muxingApp")] = 
+      flutter::EncodableValue(extractor.getMuxingApp());
+    metadata[flutter::EncodableValue("writingApp")] = 
+      flutter::EncodableValue(extractor.getWritingApp());
+    metadata[flutter::EncodableValue("bitrate")] = 
+      flutter::EncodableValue(static_cast<int64_t>(extractor.getEstimatedBitrate()));
+    
+    // Add video streams info
+    flutter::EncodableList videoStreams;
+    for (const auto& stream : extractor.getVideoStreams()) {
+      flutter::EncodableMap videoStream;
+      videoStream[flutter::EncodableValue("trackNumber")] = 
+        flutter::EncodableValue(static_cast<int>(stream.trackNumber));
+      videoStream[flutter::EncodableValue("codecId")] = 
+        flutter::EncodableValue(stream.codecID);
+      videoStream[flutter::EncodableValue("codecName")] = 
+        flutter::EncodableValue(stream.codecName);
+      videoStream[flutter::EncodableValue("width")] = 
+        flutter::EncodableValue(static_cast<int>(stream.pixelWidth));
+      videoStream[flutter::EncodableValue("height")] = 
+        flutter::EncodableValue(static_cast<int>(stream.pixelHeight));
+      videoStream[flutter::EncodableValue("frameRate")] = 
+        flutter::EncodableValue(stream.frameRate);
+      
+      videoStreams.push_back(flutter::EncodableValue(videoStream));
+    }
+    metadata[flutter::EncodableValue("videoStreams")] = 
+      flutter::EncodableValue(videoStreams);
+    
+    // Add audio streams info
+    flutter::EncodableList audioStreams;
+    for (const auto& stream : extractor.getAudioStreams()) {
+      flutter::EncodableMap audioStream;
+      audioStream[flutter::EncodableValue("trackNumber")] = 
+        flutter::EncodableValue(static_cast<int>(stream.trackNumber));
+      audioStream[flutter::EncodableValue("codecId")] = 
+        flutter::EncodableValue(stream.codecID);
+      audioStream[flutter::EncodableValue("codecName")] = 
+        flutter::EncodableValue(stream.codecName);
+      audioStream[flutter::EncodableValue("channels")] = 
+        flutter::EncodableValue(static_cast<int>(stream.channels));
+      audioStream[flutter::EncodableValue("sampleRate")] = 
+        flutter::EncodableValue(stream.samplingFrequency);
+      audioStream[flutter::EncodableValue("bitDepth")] = 
+        flutter::EncodableValue(static_cast<int>(stream.bitDepth));
+      
+      audioStreams.push_back(flutter::EncodableValue(audioStream));
+    }
+    metadata[flutter::EncodableValue("audioStreams")] = 
+      flutter::EncodableValue(audioStreams);
+    
+    // Add attachments info
+    flutter::EncodableList attachmentsList;
+    for (size_t i = 0; i < extractor.getAttachments().size(); i++) {
+      const auto& attachment = extractor.getAttachments()[i];
+      flutter::EncodableMap attachmentMap;
+      attachmentMap[flutter::EncodableValue("fileName")] = 
+        flutter::EncodableValue(attachment.fileName);
+      attachmentMap[flutter::EncodableValue("mimeType")] = 
+        flutter::EncodableValue(attachment.mimeType);
+      attachmentMap[flutter::EncodableValue("description")] = 
+        flutter::EncodableValue(attachment.description);
+      attachmentMap[flutter::EncodableValue("size")] = 
+        flutter::EncodableValue(static_cast<int64_t>(attachment.dataSize));
+      attachmentMap[flutter::EncodableValue("index")] = 
+        flutter::EncodableValue(static_cast<int>(i));
+      
+      attachmentsList.push_back(flutter::EncodableValue(attachmentMap));
+    }
+    metadata[flutter::EncodableValue("attachments")] = 
+      flutter::EncodableValue(attachmentsList);
+    
+    // Return the metadata
+    result->Success(flutter::EncodableValue(metadata));
+  }
+  else if (method == "extractMkvAttachment") {
+    // Handle extracting an attachment from an MKV file
+    const auto* args = std::get_if<flutter::EncodableMap>(method_call.arguments());
+    if (!args) {
+      result->Error(
+        "bad_args",
+        "Expected a map with keys 'mkvPath', 'attachmentIndex', 'outputPath'.");
+      return;
+    }
+    
+    // Get the parameters
+    std::string mkvPath;
+    int attachmentIndex = -1;
+    std::string outputPath;
+    
+    for (const auto& kv : *args) {
+      const auto& key = kv.first;
+      const auto& value = kv.second;
+      if (auto keyStr = std::get_if<std::string>(&key)) {
+        if (*keyStr == "mkvPath" && std::get_if<std::string>(&value)) {
+          mkvPath = std::get<std::string>(value);
+        } else if (*keyStr == "attachmentIndex" && std::get_if<int>(&value)) {
+          attachmentIndex = std::get<int>(value);
+        } else if (*keyStr == "outputPath" && std::get_if<std::string>(&value)) {
+          outputPath = std::get<std::string>(value);
+        }
+      }
+    }
+    
+    if (mkvPath.empty() || attachmentIndex < 0 || outputPath.empty()) {
+      result->Error(
+        "invalid_args",
+        "Missing or invalid parameters.");
+      return;
+    }
+    
+    // Extract the attachment
+    MkvMetadataExtractor extractor;
+    if (!extractor.open(mkvPath)) {
+      result->Error(
+        "file_error",
+        "Failed to open the MKV file.");
+      return;
+    }
+    
+    if (static_cast<size_t>(attachmentIndex) >= extractor.getAttachments().size()) {
+      result->Error(
+        "invalid_index",
+        "Attachment index out of range.");
+      return;
+    }
+    
+    bool success = extractor.extractAttachment(attachmentIndex, outputPath);
+    if (success) {
+      result->Success(flutter::EncodableValue(true));
+    } else {
+      result->Error(
+        "extract_error",
+        "Failed to extract the attachment.");
+    }
+  }
+  else {
     result->NotImplemented();
   }
 }

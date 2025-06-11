@@ -20,7 +20,7 @@ void main() {
   });
 
   test('getPlatformVersion', () async {
-    VideoThumbnailExporter videoThumbnailExporterPlugin = VideoThumbnailExporter();
+    VideoDataExtractor videoThumbnailExporterPlugin = VideoDataExtractor();
     MockVideoThumbnailExporterPlatform fakePlatform = MockVideoThumbnailExporterPlatform();
     VideoThumbnailExporterPlatform.instance = fakePlatform;
 
