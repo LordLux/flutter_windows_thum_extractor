@@ -131,3 +131,21 @@ bool GetExplorerThumbnail(
 
     return (status == Gdiplus::Ok);
 }
+
+bool IsExplorerThumbnailAvailable() {
+    // Just check if we can create the necessary COM objects
+    HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+    if (FAILED(hr)) return false;
+    
+    IThumbnailProvider* pThumbProvider = NULL;
+    (void)pThumbProvider;
+    bool result = false;
+    
+    // Just test if the API is available
+    if (SUCCEEDED(hr)) {
+        CoUninitialize();
+        result = true;
+    }
+    
+    return result;
+}

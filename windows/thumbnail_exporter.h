@@ -15,6 +15,8 @@
 #include <string>
 #include <wtypes.h>
 
+bool IsExplorerThumbnailAvailable();
+
 /// Attempts to retrieve Windows Explorer’s cached thumbnail for `videoPath`
 /// at maximum dimension `requestedSize` (e.g. 256). On success, writes the
 /// PNG to `outputPng` and returns true. Otherwise returns false.

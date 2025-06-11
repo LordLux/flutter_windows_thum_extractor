@@ -36,6 +36,8 @@ list(APPEND PLUGIN_SOURCES
   "thumbnail_exporter.h"
   "mkv_metadata_extractor_version5.cpp"
   "mkv_metadata_extractor_version5.h"
+  "video_duration.cpp"
+  "video_duration.h"
 )
 
 # Define the plugin library target. Its name must not be changed (see comment
@@ -71,6 +73,11 @@ target_link_libraries(${PLUGIN_NAME} PRIVATE
   Shlwapi.lib       # for SHCreateItemFromParsingName
   Shell32.lib       # for IThumbnailCache COM interfaces
   Gdiplus.lib       # for GDI+ (saving HBITMAP → PNG)
+  
+  mfplat.lib        # for Media Foundation platform support
+  mfreadwrite.lib   # for Media Foundation read/write support
+  mfuuid.lib        # for Media Foundation UUID support
+  Shlwapi.lib       # for SHCreateItemFromParsingName
 )
 
 target_link_directories(${PLUGIN_NAME} PRIVATE

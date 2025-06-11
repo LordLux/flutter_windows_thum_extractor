@@ -10,7 +10,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_thumbnail_exporter/video_thumbnail_exporter.dart';
 
-void main() {
+void main() async {
+  await VideoDataExtractor.initialize();
   runApp(MaterialApp(home: const MyApp()));
 }
 
@@ -42,7 +43,7 @@ class _MyAppState extends State<MyApp> {
       _isProcessing = true;
     });
 
-    filePath = filePath.replaceAll('"', "").replaceAll("'", "").replaceAll("\\", Platform.pathSeparator).replaceAll("/", Platform.pathSeparator);
+    filePath = filePath.replaceAll('"', "").replaceAll("\\", Platform.pathSeparator).replaceAll("/", Platform.pathSeparator);
 
     File file = File(filePath);
     if (!await file.exists()) {
@@ -59,7 +60,11 @@ class _MyAppState extends State<MyApp> {
 
       // Extract metadata if it's an MKV file
       final String extension = path.extension(filePath).toLowerCase();
-      if (extension == '.mkv') await _extractMetadata(filePath);
+      await _extractDuration(filePath);
+      await Future.delayed(const Duration(seconds: 1));
+      if (extension == '.mkv') {
+        await _extractMetadata(filePath);
+      }
 
       setState(() {
         _isProcessing = false;
@@ -111,6 +116,22 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
+  Future<void> _extractDuration(String filePath) async {
+    try {
+      final duration = await VideoDataExtractor.getVideoDuration(
+        videoPath: filePath,
+      );
+
+      setState(() {
+        _status = '$_status\nDuration: $duration ms';
+      });
+    } catch (e, st) {
+      setState(() {
+        _status = '$_status\nDuration error: $e\n$st';
+      });
+    }
+  }
+
   Future<void> _extractMetadata(String filePath) async {
     try {
       final metadata = await VideoDataExtractor.getVideoMetadata(
@@ -140,7 +161,7 @@ class _MyAppState extends State<MyApp> {
       final fileName = attachmentInfo?['fileName'] ?? 'attachment_$index';
       final outputPath = path.join(tempDir.path, fileName);
 
-      videoPath = videoPath.replaceAll('"', "").replaceAll("'", "").replaceAll("\\", Platform.pathSeparator).replaceAll("/", Platform.pathSeparator);
+      videoPath = videoPath.replaceAll('"', "").replaceAll("\\", Platform.pathSeparator).replaceAll("/", Platform.pathSeparator);
       final success = await VideoDataExtractor.extractVideoAttachment(
         mkvPath: videoPath,
         outputPath: outputPath,
@@ -198,13 +219,13 @@ class _MyAppState extends State<MyApp> {
                   hintText: 'e.g., C:\\path\\to\\video.mkv',
                   border: OutlineInputBorder(),
                 ),
-                onSubmitted: _processFilePath,
+                onSubmitted: (text) async => _processFilePath(text),
               ),
               const SizedBox(height: 16),
               Row(
                 children: [
                   ElevatedButton(
-                    onPressed: _isProcessing ? null : () => _processFilePath(_controller.text),
+                    onPressed: _isProcessing ? null : () async => await _processFilePath(_controller.text),
                     child: const Text('Process Video'),
                   ),
                   if (_isProcessing)

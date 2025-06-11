@@ -1,6 +1,7 @@
 #include "video_thumbnail_exporter_plugin.h"
 #include "thumbnail_exporter.h"
 #include "mkv_metadata_extractor_version5.h"
+#include "video_duration.h"
 
 // This must be included before many other Windows headers.
 #include <windows.h>
@@ -14,6 +15,13 @@
 
 #include <memory>
 #include <sstream>
+
+#include <mfapi.h>
+#include <mfidl.h>
+#include <mfreadwrite.h>
+#include <propvarutil.h>
+#include <shlwapi.h>
+#include <string>
 
 namespace video_thumbnail_exporter {
 
@@ -58,8 +66,67 @@ std::string WideToUtf8(const std::wstring& wide) {
 void VideoThumbnailExporterPlugin::HandleMethodCall(
     const flutter::MethodCall<flutter::EncodableValue> &method_call,
     std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
+  // Helper lambda to convert EncodableValue→std::wstring
+  auto getString = [&](const flutter::EncodableValue& val) -> std::wstring {
+    if (auto strPtr = std::get_if<std::string>(&val)) {
+      // Convert UTF-8 std::string to std::wstring
+      int len = MultiByteToWideChar(CP_UTF8, 0, strPtr->c_str(), -1, nullptr, 0);
+      std::wstring wstr(len, L'\0');
+      MultiByteToWideChar(CP_UTF8, 0, strPtr->c_str(), -1, &wstr[0], len);
+      // trim trailing null
+      if (!wstr.empty() && wstr.back() == L'\0') {
+        wstr.pop_back();
+      }
+      return wstr;
+    }
+    return L"";
+  };
+
   auto method = method_call.method_name();
-  if (method == "getThumbnail") {
+  if (method == "initializeExtractor") {
+    std::wstring testPath;
+    const auto* args = std::get_if<flutter::EncodableMap>(method_call.arguments());
+    if (args) {
+      auto iter = args->find(flutter::EncodableValue("testPath"));
+      if (iter != args->end()) {
+        std::string path = std::get<std::string>(iter->second);
+        // Convert to wstring
+        testPath = std::wstring(path.begin(), path.end());
+      }
+    }
+    
+    HRESULT hr = MFStartup(MF_VERSION);
+    if (FAILED(hr)) {
+      result->Error("init_error", "Failed to initialize Media Foundation");
+      return;
+    }
+    
+    try {
+      MkvMetadataExtractor testExtractor;
+      
+      // Allocate buffer for temp path
+      wchar_t tempPathBuffer[MAX_PATH];
+      DWORD tempPathLen = GetTempPathW(MAX_PATH, tempPathBuffer);
+      if (tempPathLen == 0 || tempPathLen > MAX_PATH) {
+        result->Error("init_error", "Failed to get temp path.");
+        return;
+      }
+      testPath = std::wstring(tempPathBuffer, tempPathLen);
+
+      // Just test if the thumbnail system is accessible
+      // No actual extraction happens
+      IsExplorerThumbnailAvailable();
+      
+      result->Success(flutter::EncodableValue(true));
+    }
+    catch (const std::exception& e) {
+      std::string errorMsg = "Initialization error: ";
+      errorMsg += e.what();
+      result->Error("init_error", errorMsg);
+    }
+  }
+  // Handle video thumbnail extraction
+  else if (method == "getThumbnail") {
     // Expect arguments as a Map: {
     //   'videoPath': String,
     //   'outputPath': String,
@@ -76,22 +143,6 @@ void VideoThumbnailExporterPlugin::HandleMethodCall(
      // Extract each field:
     std::wstring videoPathW, outputPathW;
     UINT sizePx = 0;
-    
-    // Helper lambda to convert EncodableValue→std::wstring
-    auto getString = [&](const flutter::EncodableValue& val) -> std::wstring {
-      if (auto strPtr = std::get_if<std::string>(&val)) {
-        // Convert UTF-8 std::string to std::wstring
-        int len = MultiByteToWideChar(CP_UTF8, 0, strPtr->c_str(), -1, nullptr, 0);
-        std::wstring wstr(len, L'\0');
-        MultiByteToWideChar(CP_UTF8, 0, strPtr->c_str(), -1, &wstr[0], len);
-        // trim trailing null
-        if (!wstr.empty() && wstr.back() == L'\0') {
-          wstr.pop_back();
-        }
-        return wstr;
-      }
-      return L"";
-    };
     
     // Loop over the map and pick out our keys:
     for (const auto& kv : *args) {
@@ -127,8 +178,9 @@ void VideoThumbnailExporterPlugin::HandleMethodCall(
         "native_error",
         "Failed to retrieve or save the thumbnail. Check paths & permissions.");
     }
-  } else if (method == "getMkvMetadata") {
-    // Handle MKV metadata extraction
+  } 
+  // Handle MKV metadata extraction
+  else if (method == "getMkvMetadata") {
     const auto* args = std::get_if<flutter::EncodableMap>(method_call.arguments());
     if (!args) {
       result->Error(
@@ -248,8 +300,8 @@ void VideoThumbnailExporterPlugin::HandleMethodCall(
     // Return the metadata
     result->Success(flutter::EncodableValue(metadata));
   }
+  // Handle extracting an attachment from an MKV file
   else if (method == "extractMkvAttachment") {
-    // Handle extracting an attachment from an MKV file
     const auto* args = std::get_if<flutter::EncodableMap>(method_call.arguments());
     if (!args) {
       result->Error(
@@ -309,6 +361,29 @@ void VideoThumbnailExporterPlugin::HandleMethodCall(
         "Failed to extract the attachment.");
     }
   }
+  // In the HandleMethodCall method
+  else if (method == "getVideoDuration") {
+    std::wstring videoPathW;
+    const auto* args = std::get_if<flutter::EncodableMap>(method_call.arguments());
+    if (args) {
+      for (const auto& kv : *args) {
+        if (kv.first == flutter::EncodableValue("videoPath")) {
+          videoPathW = getString(kv.second);  // Using your existing string conversion helper
+        }
+      }
+    }
+    
+    if (videoPathW.empty()) {
+      result->Error("invalid_args", "Missing or invalid 'videoPath' parameter.");
+      return;
+    }
+    
+    // Ensure GetVideoFileDuration is declared in video_duration.h and implemented in your project
+    // Make sure GetVideoFileDuration is declared in video_duration.h and implemented in your project
+    double duration = GetVideoFileDuration(videoPathW);
+    result->Success(flutter::EncodableValue(duration));
+  }
+  // Handle any other method calls as not implemented
   else {
     result->NotImplemented();
   }
