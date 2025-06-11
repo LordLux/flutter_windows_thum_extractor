@@ -34,3 +34,5 @@ build/
 
 # FVM Version Cache
 .fvm/
+windows/.vs/
+**/*.ipch
