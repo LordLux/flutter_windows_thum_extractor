@@ -21,7 +21,6 @@ HRESULT GetVideoDuration(IMFMediaSource *pSource, MFTIME *pDuration)
 }
 
 // Get the duration of a video file
-// Get the duration of a video file
 double GetVideoFileDuration(const std::wstring& filePath) {
   // Initialize Media Foundation
   HRESULT hr = MFStartup(MF_VERSION);

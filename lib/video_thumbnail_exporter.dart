@@ -14,18 +14,16 @@ class VideoDataExtractor {
   /// Initializes the native components of the video extractor
   /// to avoid first-time performance penalty in subsequent calls.
   ///
-  /// Throws a FileSystemException if for some reason the test video file is not found.
+  /// Throws an exception if initialization fails.
   static Future<void> initialize() async {
     try {
-      final testFilePath = "$assets${ps}test_video.mkv";
-      final testFile = File(testFilePath);
-      if (!await testFile.exists()) //
-        throw FileSystemException('Test video file not found at $testFilePath');
-
-      await _channel.invokeMethod<bool>('initializeExtractor', {'testPath': testFilePath});
+      // The native side can initialize without a file, so we just call it.
+      await _channel.invokeMethod<bool>('initializeExtractor');
     } catch (e) {
-      // Silently ignore errors during initialization
+      // It's better to rethrow or handle the error meaningfully.
+      // Silently ignoring it can hide problems.
       debugPrint('VideoDataExtractor initialization error: $e');
+      rethrow;
     }
   }
 
@@ -51,12 +49,29 @@ class VideoDataExtractor {
     return await _channel.invokeMethod<bool>('getThumbnail', args) ?? false;
   }
 
+  /// Returns file metadata including creation time, modified time, access time, and file size.
+  ///
+  /// All times are in milliseconds since epoch (UTC).
+  /// File size is in bytes.
+  ///
+  /// Otherwise throws a PlatformException.
+  static Future<Map<String, dynamic>> getFileMetadata({
+    /// The path to the file to extract metadata from.
+    required String filePath,
+  }) async {
+    final Map<String, dynamic> args = <String, dynamic>{
+      'filePath': filePath,
+    };
+
+    return Map<String, dynamic>.from(await _channel.invokeMethod<Map>('getFileMetadata', args) ?? {});
+  }
+
   /// Returns the Video Metadata as a Map.
   ///
   /// Throws an ArgumentError if the video file is not an MKV file.
   ///
   /// Otherwise throws a PlatformException.
-  static Future<Map<dynamic, dynamic>> getVideoMetadata({
+  static Future<Map<dynamic, dynamic>> getMkvMetadata({
     /// The path to the video file to extract metadata from.
     required String mkvPath,
   }) async {

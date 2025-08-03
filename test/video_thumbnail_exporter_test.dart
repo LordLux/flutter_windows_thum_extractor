@@ -18,12 +18,4 @@ void main() {
   test('$MethodChannelVideoThumbnailExporter is the default instance', () {
     expect(initialPlatform, isInstanceOf<MethodChannelVideoThumbnailExporter>());
   });
-
-  test('getPlatformVersion', () async {
-    VideoDataExtractor videoThumbnailExporterPlugin = VideoDataExtractor();
-    MockVideoThumbnailExporterPlatform fakePlatform = MockVideoThumbnailExporterPlatform();
-    VideoThumbnailExporterPlatform.instance = fakePlatform;
-
-    expect(await videoThumbnailExporterPlugin.getPlatformVersion(), '42');
-  });
 }
