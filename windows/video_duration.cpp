@@ -69,7 +69,7 @@ double GetVideoFileDuration(const std::wstring &filePath)
   }
   else
   {
-    std::wcout << L"File exists: " << filePath << std::endl;
+    // std::wcout << L"File exists: " << filePath << std::endl;
   }
 
   // Creates a byte stream from the file path.

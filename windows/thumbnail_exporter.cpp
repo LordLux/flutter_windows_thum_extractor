@@ -44,12 +44,12 @@ bool GetExplorerThumbnail(
     const std::wstring longPathPrefix = L"\\\\?\\";
     if (path.rfind(longPathPrefix, 0) == 0)
     {
-        std::wcout << L"Long path detected! " << std::endl;
+        // std::wcout << L"Long path detected! " << std::endl;
         path = path.substr(longPathPrefix.length());
     }
     
     // print debug info
-    std::wcout << L"Getting thumbnail for: " << path << std::endl;
+    // std::wcout << L"Getting thumbnail for: " << path << std::endl;
 
     // Initialize COM
     HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
@@ -144,7 +144,7 @@ bool GetExplorerThumbnail(
     DeleteObject(hBitmap);
     CoUninitialize();
 
-    std::wcout << L"Thumbnail saved to: " << outputPng << std::endl;
+    // std::wcout << L"Thumbnail saved to: " << outputPng << std::endl;
 
     return (status == Gdiplus::Ok);
 }
