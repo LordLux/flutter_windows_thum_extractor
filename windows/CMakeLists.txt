@@ -11,6 +11,9 @@ project(${PROJECT_NAME} LANGUAGES CXX)
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.
 cmake_policy(VERSION 3.14...3.25)
+# if(POLICY CMP0167)
+#   cmake_policy(SET CMP0167 NEW)
+# endif()
 
 # Disable Windows macros that conflict with C++ standard library
 add_definitions(-DNOMINMAX)

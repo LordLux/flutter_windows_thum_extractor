@@ -184,8 +184,7 @@ namespace video_thumbnail_exporter
         return;
       }
 
-      // Ensure GetVideoFileDuration is declared in video_duration.h and implemented in your project
-      // Make sure GetVideoFileDuration is declared in video_duration.h and implemented in your project
+      // Get video duration
       double duration = GetVideoFileDuration(videoPathW);
       result->Success(flutter::EncodableValue(duration));
     }
