@@ -9,9 +9,4 @@ class MethodChannelVideoThumbnailExporter extends VideoThumbnailExporterPlatform
   @visibleForTesting
   final methodChannel = const MethodChannel('video_thumbnail_exporter');
 
-  @override
-  Future<String?> getPlatformVersion() async {
-    final version = await methodChannel.invokeMethod<String>('getPlatformVersion');
-    return version;
-  }
 }
