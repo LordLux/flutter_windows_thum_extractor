@@ -11,8 +11,14 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:video_thumbnail_exporter/video_thumbnail_exporter.dart';
 
 void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
   await VideoDataExtractor.initialize();
-  runApp(MaterialApp(home: const MyApp()));
+  runApp(MaterialApp(
+    home: const MyApp(),
+    theme: ThemeData.dark(),
+    darkTheme: ThemeData.dark(),
+  ));
 }
 
 class MyApp extends StatefulWidget {
@@ -44,6 +50,14 @@ class _MyAppState extends State<MyApp> {
     });
 
     filePath = filePath.replaceAll('"', "").replaceAll("\\", Platform.pathSeparator).replaceAll("/", Platform.pathSeparator);
+    
+    if (filePath.isEmpty) {
+      setState(() {
+        _status = 'Error: Path cannot be empty';
+        _isProcessing = false;
+      });
+      return;
+    }
 
     File file = File(filePath);
     if (!await file.exists()) {
@@ -134,8 +148,8 @@ class _MyAppState extends State<MyApp> {
 
   Future<void> _extractMetadata(String filePath) async {
     try {
-      final metadata = await VideoDataExtractor.getVideoMetadata(
-        mkvPath: filePath,
+      final metadata = await VideoDataExtractor.getFileMetadata(
+        filePath: filePath,
       );
 
       setState(() {
