@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -60,9 +61,8 @@ Future<MkvMetadata> _extractMkvMetadataInIsolate(_MkvMetadataParams params) asyn
   BackgroundIsolateBinaryMessenger.ensureInitialized(params.rootToken);
 
   try {
-    print('Extracting MKV metadata from: ${params.filePath}');
     final a = await VideoDataExtractor.getMkvMetadata(mkvPath: params.filePath);
-    print('MKV metadata extracted: $a');
+    
     // Parse the JSON inside the isolate to avoid blocking the main thread.
     return MkvMetadata.fromJson(a);
   } catch (e, st) {
